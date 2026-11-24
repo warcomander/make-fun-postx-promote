@@ -1,16 +1,16 @@
-// Entry for make.fun bounty "post-x-promote-make-your-own-bounty-01":
-// promote make.fun's make-your-own-bounty post on X.
+// Entry for the make.fun bounty "post-x-promote-make-your-own-bounty-01"
+// (promote make.fun's make-your-own-bounty post on X).
 //
-// The entry itself is one post of our own on X that quotes make.fun's post
-// (https://x.com/makefunai/status/2124915864336236646), carries a photo of its
-// own (postx-card.png, made here from make.fun's press pack), and names
-// make.fun / @makefunai plus our play code in its text. POST.json at this
-// repository's root holds that post's address; the house reads the post from
-// X and scores its replies + reposts + quotes. This program only has to hand
-// POST.json to the grader: it copies POST.json from the repository root to
-// the output directory, byte for byte.
+// The entry itself is a single post of our own on X: it quotes make.fun's
+// post at https://x.com/makefunai/status/2124915864336236646, carries a photo
+// of its own, and its text names make.fun / @makefunai plus our play code.
+// POST.json in this repository's root holds that post's address, and the
+// house reads the post from X and scores its replies + reposts + quotes.
+// This program only hands POST.json to the grader: it first checks that the
+// address in POST.json is really an X post address, then copies POST.json
+// from the repository root into the output directory, byte for byte.
 //
-// Run the way the grader does (Node 22, standard library only):
+// Run the way the grader runs it (Node 22, standard library only):
 //   mkdir -p out && MAKEFUN_BOT_DIR=. MAKEFUN_OUTPUT_DIR=out node main.ts
 
 import { copyFileSync, mkdirSync, readFileSync } from 'node:fs';
@@ -19,14 +19,18 @@ import { join } from 'node:path';
 const BOT_DIR = process.env.MAKEFUN_BOT_DIR ?? '/bot';
 const OUTPUT_DIR = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 
-// The entry is worthless if POST.json names no real post: refuse a
-// placeholder or a non-X address instead of copying it to the output.
-const post = JSON.parse(readFileSync(join(BOT_DIR, 'POST.json'), 'utf8'));
-const url = String(post.url ?? '');
-if (!/^https:\/\/(x|twitter)\.com\/[^/]+\/status\/\d+$/.test(url)) {
-  console.error(`POST.json does not name an X post: ${url}`);
+// An X post address: https://x.com/<handle>/status/<digits>, or the same
+// on twitter.com. Anything else (a placeholder, make.fun's own post, a
+// profile link) is not a post of our own and must fail loudly here instead
+// of silently handing the gate a bad address.
+const POST_URL = /^https:\/\/(x\.com|twitter\.com)\/[^/]+\/status\/\d+\/?$/;
+
+const postPath = join(BOT_DIR, 'POST.json');
+const post = JSON.parse(readFileSync(postPath, 'utf8')) as { url?: unknown };
+if (typeof post.url !== 'string' || !POST_URL.test(post.url)) {
+  console.error(`POST.json url is not an X post address: ${String(post.url)}`);
   process.exit(1);
 }
 
 mkdirSync(OUTPUT_DIR, { recursive: true });
-copyFileSync(join(BOT_DIR, 'POST.json'), join(OUTPUT_DIR, 'POST.json'));
+copyFileSync(postPath, join(OUTPUT_DIR, 'POST.json'));
